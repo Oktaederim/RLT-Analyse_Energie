@@ -349,7 +349,7 @@ document.addEventListener('DOMContentLoaded', () => {
     schedulersContainer.innerHTML = createScheduler('basis') + createScheduler('optimierung');
     
     document.getElementById('form-optimierung').style.display = 'none';
-    document.getElementById('form-basis').querySelector('.form-section').classList.add('active-scenario-basis');
+    document.getElementById('form-basis').querySelectorAll('.form-section').forEach(el => el.classList.add('active-scenario-basis'));
     
     addInputValidation();
     setupSchedulerInteraction('basis');
@@ -704,14 +704,23 @@ function calculateScenario(prefix) {
     const zuluftAbsenk = getStatePoint(prefix, 'zuluftAbsenk');
 
     const weeklyHours = getSchedulerHours(prefix);
-    const totalOpHours = weeklyHours.normal + weeklyHours.absenk;
-    if (totalOpHours === 0) return createEmptyResult();
+    const totalWeeklyOpHours = weeklyHours.normal + weeklyHours.absenk;
+    if (totalWeeklyOpHours === 0) return createEmptyResult();
 
-    const ratioNormal = weeklyHours.normal / totalOpHours;
-    const ratioAbsenk = weeklyHours.absenk / totalOpHours;
+    const totalHoursInYear = 8760;
+    const heatingSeasonFraction = i.heizstunden / totalHoursInYear;
+    const coolingSeasonFraction = i.kuehlstunden / totalHoursInYear;
+
+    const annualNormalHours = weeklyHours.normal * 52.14; // Approx weeks in a year
+    const annualAbsenkHours = weeklyHours.absenk * 52.14;
+
+    const h_normal_heiz = annualNormalHours * heatingSeasonFraction;
+    const h_absenk_heiz = annualAbsenkHours * heatingSeasonFraction;
+    const h_normal_kuehl = annualNormalHours * coolingSeasonFraction;
+    const h_absenk_kuehl = annualAbsenkHours * coolingSeasonFraction;
     
-    const resNormal = calculateMode(i.volumenstromNormal, i, aussenluftHeiz, aussenluftKuehl, abluft, zuluftNormal, ratioNormal * i.heizstunden, ratioNormal * i.kuehlstunden);
-    const resAbsenk = calculateMode(i.volumenstromAbsenk, i, aussenluftHeiz, aussenluftKuehl, abluft, zuluftAbsenk, ratioAbsenk * i.heizstunden, ratioAbsenk * i.kuehlstunden);
+    const resNormal = calculateMode(i.volumenstromNormal, i, aussenluftHeiz, aussenluftKuehl, abluft, zuluftNormal, h_normal_heiz, h_normal_kuehl);
+    const resAbsenk = calculateMode(i.volumenstromAbsenk, i, aussenluftHeiz, aussenluftKuehl, abluft, zuluftAbsenk, h_absenk_heiz, h_absenk_kuehl);
     
     return {
         energyFan: resNormal.energyFan + resAbsenk.energyFan, costFan: resNormal.costFan + resAbsenk.costFan,
@@ -805,7 +814,7 @@ function updateCharts(basis, optimierung) {
             labels: ['Ventilator', 'Heizen', 'Kühlen'],
             datasets: [{
                 data: [optimierung.costFan, optimierung.costHeat, optimierung.costCool],
-                backgroundColor: ['#2563eb', '#f97316', '#ef4444'],
+                backgroundColor: ['#6b7280', '#ef4444', '#2563eb'],
                 borderColor: '#ffffff', borderWidth: 4
             }]
         },
