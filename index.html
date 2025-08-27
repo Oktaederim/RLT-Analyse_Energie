@@ -74,7 +74,12 @@
         }
         .mode-normal { background-color: #2563eb; }
         .mode-absenk { background-color: #7dd3fc; }
-        .mode-aus { background-color: #e5e7eb; }
+        .mode-aus { 
+            background-color: #f3f4f6;
+            background-image: repeating-linear-gradient(45deg, #e5e7eb 25%, transparent 25%, transparent 75%, #e5e7eb 75%, #e5e7eb), repeating-linear-gradient(45deg, #e5e7eb 25%, transparent 25%, transparent 75%, #e5e7eb 75%, #e5e7eb);
+            background-position: 0 0, 4px 4px;
+            background-size: 8px 8px;
+        }
         .kpi-card {
             background-color: white;
             border-radius: 0.75rem;
@@ -97,17 +102,14 @@
         }
         .saving-positive { color: #16a34a; }
         .saving-negative { color: #dc2626; }
-        /* Custom grid for scheduler */
         .grid-cols-49 {
             grid-template-columns: 2.5rem repeat(48, minmax(0, 1fr));
         }
-        /* Chart container */
         .chart-container {
             position: relative;
             height: 350px;
             width: 100%;
         }
-        /* Radio button styling */
         .radio-group label {
             cursor: pointer;
             padding: 0.5rem 1rem;
@@ -115,14 +117,20 @@
             border-radius: 0.375rem;
             transition: all 0.2s;
         }
-        .radio-group input[type="radio"] {
-            display: none;
-        }
         .radio-group input[type="radio"]:checked + label {
             background-color: #dbeafe;
             border-color: #3b82f6;
             color: #1e40af;
             font-weight: 600;
+        }
+        .form-section {
+            background-color: #f9fafb;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-top: 1rem;
+        }
+        #report-table-body tr:nth-child(even) {
+            background-color: #f9fafb;
         }
     </style>
 </head>
@@ -332,26 +340,36 @@ function switchTab(tabName) {
 function createFormHTML(prefix) {
     return `
         <form id="form-${prefix}" data-prefix="${prefix}">
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-6">
-                <div class="lg:col-span-3"><h3 class="text-lg font-semibold text-gray-600 border-b pb-2 mb-4">Allgemeine Anlagenparameter</h3></div>
-                ${createInputField(prefix, 'volumenstromNormal', 'Zuluftvolumenstrom Normal', 20000, 'm³/h')}
-                ${createInputField(prefix, 'volumenstromAbsenk', 'Zuluftvolumenstrom Absenk', 10000, 'm³/h')}
-                ${createInputField(prefix, 'druckverlust', 'Gesamtdruckverlust Anlage', 1500, 'Pa')}
-                ${createInputField(prefix, 'wirkungsgradVentilator', 'Wirkungsgrad Ventilator', 70, '%', {min: 0, max: 100})}
-                ${createInputField(prefix, 'wirkungsgradMotor', 'Wirkungsgrad Motor', 90, '%', {min: 0, max: 100})}
-                ${createInputField(prefix, 'wirkungsgradWRG', 'Wirkungsgrad WRG', 75, '%', {min: 0, max: 100})}
-                <div class="lg:col-span-3 mt-4"><h3 class="text-lg font-semibold text-gray-600 border-b pb-2 mb-4">Betriebs- und Klimazustände</h3></div>
-                ${createStatePointField(prefix, 'aussenluftHeiz', 'Außenluft (Heizperiode)', -5, 80)}
-                ${createStatePointField(prefix, 'aussenluftKuehl', 'Außenluft (Kühlperiode)', 32, 50)}
-                ${createStatePointField(prefix, 'abluft', 'Raumluft/Abluft', 21, 50)}
-                ${createStatePointField(prefix, 'zuluftNormal', 'Zuluft (Normal)', 21, 50)}
-                ${createStatePointField(prefix, 'zuluftAbsenk', 'Zuluft (Absenk)', 18, 50)}
-                ${createInputField(prefix, 'heizstunden', 'Heizstunden pro Jahr', 3000, 'h/a')}
-                ${createInputField(prefix, 'kuehlstunden', 'Kühlstunden pro Jahr', 1000, 'h/a')}
-                <div class="lg:col-span-3 mt-4"><h3 class="text-lg font-semibold text-gray-600 border-b pb-2 mb-4">Energiekosten</h3></div>
-                ${createInputField(prefix, 'kostenWaerme', 'Kosten Wärmeenergie', 0.12, '€/kWh', {step: 0.001})}
-                ${createInputField(prefix, 'kostenKaelte', 'Kosten Kälteenergie', 0.08, '€/kWh', {step: 0.001})}
-                ${createInputField(prefix, 'kostenStrom', 'Kosten elektrische Energie', 0.30, '€/kWh', {step: 0.001})}
+            <div class="form-section">
+                <h3 class="text-lg font-semibold text-gray-600 mb-4">Allgemeine Anlagenparameter</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-6">
+                    ${createInputField(prefix, 'volumenstromNormal', 'Zuluftvolumenstrom Normal', 20000, 'm³/h')}
+                    ${createInputField(prefix, 'volumenstromAbsenk', 'Zuluftvolumenstrom Absenk', 10000, 'm³/h')}
+                    ${createInputField(prefix, 'druckverlust', 'Gesamtdruckverlust Anlage', 1500, 'Pa')}
+                    ${createInputField(prefix, 'wirkungsgradVentilator', 'Wirkungsgrad Ventilator', 70, '%', {min: 0, max: 100})}
+                    ${createInputField(prefix, 'wirkungsgradMotor', 'Wirkungsgrad Motor', 90, '%', {min: 0, max: 100})}
+                    ${createInputField(prefix, 'wirkungsgradWRG', 'Wirkungsgrad WRG', 75, '%', {min: 0, max: 100})}
+                </div>
+            </div>
+            <div class="form-section">
+                <h3 class="text-lg font-semibold text-gray-600 mb-4">Betriebs- und Klimazustände</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-6">
+                    ${createStatePointField(prefix, 'aussenluftHeiz', 'Außenluft (Heizperiode)', -5, 80)}
+                    ${createStatePointField(prefix, 'aussenluftKuehl', 'Außenluft (Kühlperiode)', 32, 50)}
+                    ${createStatePointField(prefix, 'abluft', 'Raumluft/Abluft', 21, 50)}
+                    ${createStatePointField(prefix, 'zuluftNormal', 'Zuluft (Normal)', 21, 50)}
+                    ${createStatePointField(prefix, 'zuluftAbsenk', 'Zuluft (Absenk)', 18, 50)}
+                    ${createInputField(prefix, 'heizstunden', 'Heizstunden pro Jahr', 3000, 'h/a')}
+                    ${createInputField(prefix, 'kuehlstunden', 'Kühlstunden pro Jahr', 1000, 'h/a')}
+                </div>
+            </div>
+            <div class="form-section">
+                <h3 class="text-lg font-semibold text-gray-600 mb-4">Energiekosten</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-6">
+                    ${createInputField(prefix, 'kostenWaerme', 'Kosten Wärmeenergie', 0.12, '€/kWh', {step: 0.001})}
+                    ${createInputField(prefix, 'kostenKaelte', 'Kosten Kälteenergie', 0.08, '€/kWh', {step: 0.001})}
+                    ${createInputField(prefix, 'kostenStrom', 'Kosten elektrische Energie', 0.30, '€/kWh', {step: 0.001})}
+                </div>
             </div>
             <div class="mt-8">${createScheduler(prefix)}</div>
         </form>
@@ -416,10 +434,10 @@ function createScheduler(prefix) {
 
     return `
         <div class="flex justify-between items-center">
-             <h3 class="text-lg font-semibold text-gray-600 border-b pb-2 mb-4">Betriebsprofil (Wochenplaner)</h3>
+             <h3 class="text-lg font-semibold text-gray-600">Betriebsprofil (Wochenplaner)</h3>
              <button type="button" id="copy-profile-btn" style="display: ${prefix === 'optimierung' ? 'inline-flex' : 'none'};" class="items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700">Profil kopieren</button>
         </div>
-        <div class="flex flex-wrap items-center gap-x-6 gap-y-2 mb-4">
+        <div class="flex flex-wrap items-center gap-x-6 gap-y-2 my-4">
             <div class="flex items-center gap-4">
                 <span class="font-medium">Zeichenmodus:</span>
                 <div class="radio-group flex gap-2">
@@ -428,7 +446,7 @@ function createScheduler(prefix) {
                     <div><input type="radio" id="${prefix}-draw-aus" name="${prefix}-draw-mode" value="aus"><label for="${prefix}-draw-aus">AUS</label></div>
                 </div>
             </div>
-            <div id="time-display-${prefix}" class="font-mono text-blue-800 bg-blue-100 px-3 py-1 rounded-md text-sm h-8 flex items-center"></div>
+            <div id="time-display-${prefix}" class="font-mono text-blue-800 bg-blue-100 px-3 py-1 rounded-md text-sm h-8 flex items-center min-w-[180px]"></div>
         </div>
         <div id="scheduler-${prefix}" class="grid grid-cols-49 gap-px text-xs text-center select-none">
             ${headerHtml}
@@ -459,19 +477,21 @@ function setupSchedulerInteraction(prefix) {
     let startCell = null;
 
     scheduler.addEventListener('mousedown', (e) => {
-        if (e.target.closest('.scheduler-cell')) {
+        const cell = e.target.closest('.scheduler-cell');
+        if (cell) {
             isDragging = true;
-            startCell = e.target.closest('.scheduler-cell');
-            applyMode(startCell, prefix);
+            startCell = cell;
+            applyMode(cell, prefix);
             updateLiveTime(startCell, startCell, timeDisplay);
             e.preventDefault();
         }
     });
 
     scheduler.addEventListener('mouseover', (e) => {
-        if (isDragging && e.target.closest('.scheduler-cell')) {
-            applyMode(e.target.closest('.scheduler-cell'), prefix);
-            updateLiveTime(startCell, e.target.closest('.scheduler-cell'), timeDisplay);
+        const cell = e.target.closest('.scheduler-cell');
+        if (isDragging && cell) {
+            applyMode(cell, prefix);
+            updateLiveTime(startCell, cell, timeDisplay);
         }
     });
 
@@ -485,8 +505,6 @@ function setupSchedulerInteraction(prefix) {
 function applyMode(cell, prefix) {
     const drawMode = document.querySelector(`input[name="${prefix}-draw-mode"]:checked`).value;
     cell.className = `scheduler-cell mode-${drawMode}`;
-    cell.dataset.day = cell.parentElement.dataset.day;
-    cell.dataset.time = cell.parentElement.dataset.time;
 }
 
 function formatTime(halfHour) {
@@ -503,7 +521,7 @@ function updateLiveTime(start, end, display) {
     const endDay = parseInt(end.dataset.day);
 
     if(startDay !== endDay) {
-        display.textContent = "Bitte nur innerhalb eines Tages markieren.";
+        display.textContent = "Innerhalb eines Tages markieren";
         return;
     }
 
@@ -657,7 +675,7 @@ function displayResults(basis, optimierung, savings) {
 }
 
 function createReportRow(label, unit, energyB, costB, energyO, costO, energyS, costS, isTotal = false) {
-    const fw = isTotal ? 'font-bold' : '';
+    const fw = isTotal ? 'font-bold bg-gray-100' : '';
     return `
         <tr class="${fw}">
             <td class="px-6 py-4 whitespace-nowrap">${label}</td>
@@ -687,12 +705,12 @@ function updateCharts(basis, optimierung) {
         options: {
             responsive: true, maintainAspectRatio: false,
             plugins: {
-                legend: { position: 'bottom' },
+                legend: { position: 'bottom', labels: { font: { size: 14 } } },
                 datalabels: {
                     formatter: (value, ctx) => {
                         const sum = ctx.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
-                        const percentage = (value * 100 / sum).toFixed(1) + '%';
-                        return sum > 0 ? percentage : '';
+                        const percentage = (value * 100 / sum);
+                        return percentage > 1 ? percentage.toFixed(1) + '%' : '';
                     },
                     color: '#fff',
                     font: { weight: 'bold', size: 14 }
@@ -718,8 +736,17 @@ function updateCharts(basis, optimierung) {
         options: {
             indexAxis: 'y',
             responsive: true, maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
-            scales: { x: { beginAtZero: true, ticks: { callback: value => `${value} €` } } }
+            plugins: { 
+                legend: { display: false },
+                datalabels: {
+                    anchor: 'end',
+                    align: 'end',
+                    color: '#111827',
+                    font: { size: 14, weight: 'bold' },
+                    formatter: value => `${formatNumber(value, 2)} €`
+                }
+            },
+            scales: { x: { beginAtZero: true, ticks: { callback: value => `${formatNumber(value)} €` } } }
         }
     });
 }
