@@ -132,6 +132,20 @@
         #report-table-body tr:nth-child(even) {
             background-color: #f9fafb;
         }
+        .scheduler-selection-overlay {
+            position: absolute;
+            background-color: rgba(59, 130, 246, 0.3);
+            border: 2px solid #3b82f6;
+            z-index: 10;
+            pointer-events: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 1rem;
+            text-shadow: 1px 1px 2px black;
+        }
     </style>
 </head>
 <body class="p-4 sm:p-6 md:p-8">
@@ -168,6 +182,11 @@
                 <div class="flex border-b mb-6">
                     <div id="tab-basis" class="tab active" onclick="switchTab('basis')">Basis-Szenario (Ist)</div>
                     <div id="tab-optimierung" class="tab" onclick="switchTab('optimierung')">Optimierungs-Szenario (Soll)</div>
+                </div>
+                <div class="mt-2 p-4 bg-gray-50 rounded-lg text-sm text-gray-700">
+                    <p id="scenario-explanation">
+                        <b>Basis-Szenario:</b> Geben Sie hier die Parameter der bestehenden Anlage (Ist-Zustand) ein.
+                    </p>
                 </div>
 
                 <!-- FORMULARE -->
@@ -334,6 +353,12 @@ function switchTab(tabName) {
     document.getElementById('form-basis').style.display = tabName === 'basis' ? 'block' : 'none';
     document.getElementById('form-optimierung').style.display = tabName === 'optimierung' ? 'block' : 'none';
     document.getElementById('copy-profile-btn').style.display = tabName === 'optimierung' ? 'inline-flex' : 'none';
+    const explanation = document.getElementById('scenario-explanation');
+    if (tabName === 'basis') {
+        explanation.innerHTML = '<b>Basis-Szenario:</b> Geben Sie hier die Parameter der bestehenden Anlage (Ist-Zustand) ein.';
+    } else {
+        explanation.innerHTML = '<b>Optimierungs-Szenario:</b> Geben Sie hier die Parameter nach einer geplanten Modernisierung (Soll-Zustand) ein.';
+    }
 }
 
 // --- HTML-GENERIERUNG ---
@@ -446,11 +471,13 @@ function createScheduler(prefix) {
                     <div><input type="radio" id="${prefix}-draw-aus" name="${prefix}-draw-mode" value="aus"><label for="${prefix}-draw-aus">AUS</label></div>
                 </div>
             </div>
-            <div id="time-display-${prefix}" class="font-mono text-blue-800 bg-blue-100 px-3 py-1 rounded-md text-sm h-8 flex items-center min-w-[180px]"></div>
         </div>
-        <div id="scheduler-${prefix}" class="grid grid-cols-49 gap-px text-xs text-center select-none">
-            ${headerHtml}
-            ${rowsHtml}
+        <div id="scheduler-container-${prefix}" class="relative">
+            <div id="scheduler-${prefix}" class="grid grid-cols-49 gap-px text-xs text-center select-none">
+                ${headerHtml}
+                ${rowsHtml}
+            </div>
+            <div id="scheduler-selection-overlay-${prefix}" class="scheduler-selection-overlay hidden"></div>
         </div>
     `;
 }
@@ -471,8 +498,9 @@ function addInputValidation() {
 }
 
 function setupSchedulerInteraction(prefix) {
+    const container = document.getElementById(`scheduler-container-${prefix}`);
     const scheduler = document.getElementById(`scheduler-${prefix}`);
-    const timeDisplay = document.getElementById(`time-display-${prefix}`);
+    const overlay = document.getElementById(`scheduler-selection-overlay-${prefix}`);
     let isDragging = false;
     let startCell = null;
 
@@ -481,54 +509,78 @@ function setupSchedulerInteraction(prefix) {
         if (cell) {
             isDragging = true;
             startCell = cell;
-            applyMode(cell, prefix);
-            updateLiveTime(startCell, startCell, timeDisplay);
             e.preventDefault();
         }
     });
 
-    scheduler.addEventListener('mouseover', (e) => {
+    scheduler.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
         const cell = e.target.closest('.scheduler-cell');
-        if (isDragging && cell) {
-            applyMode(cell, prefix);
-            updateLiveTime(startCell, cell, timeDisplay);
+        if (cell) {
+            updateSelectionOverlay(startCell, cell, overlay);
         }
     });
 
-    document.addEventListener('mouseup', () => {
+    document.addEventListener('mouseup', (e) => {
+        if (!isDragging) return;
         isDragging = false;
-        startCell = null;
-        setTimeout(() => timeDisplay.textContent = '', 2000);
+        const endCell = e.target.closest('.scheduler-cell') || startCell;
+        applySelection(startCell, endCell, prefix);
+        overlay.classList.add('hidden');
     });
 }
 
-function applyMode(cell, prefix) {
-    const drawMode = document.querySelector(`input[name="${prefix}-draw-mode"]:checked`).value;
-    cell.className = `scheduler-cell mode-${drawMode}`;
+
+function updateSelectionOverlay(start, end, overlay) {
+    if (!start || !end || start.dataset.day !== end.dataset.day) {
+        overlay.classList.add('hidden');
+        return;
+    }
+
+    const day = parseInt(start.dataset.day);
+    const startTime = parseInt(start.dataset.time);
+    const endTime = parseInt(end.dataset.time);
+
+    const minTime = Math.min(startTime, endTime);
+    const maxTime = Math.max(startTime, endTime);
+
+    const startRect = scheduler.querySelector(`[data-day='${day}'][data-time='${minTime}']`).getBoundingClientRect();
+    const endRect = scheduler.querySelector(`[data-day='${day}'][data-time='${maxTime}']`).getBoundingClientRect();
+    const containerRect = scheduler.parentElement.getBoundingClientRect();
+
+    overlay.style.top = `${startRect.top - containerRect.top}px`;
+    overlay.style.left = `${startRect.left - containerRect.left}px`;
+    overlay.style.width = `${endRect.right - startRect.left}px`;
+    overlay.style.height = `${startRect.height}px`;
+    overlay.textContent = `${formatTime(minTime)} - ${formatTime(maxTime + 1)}`;
+    overlay.classList.remove('hidden');
 }
+
+
+function applySelection(start, end, prefix) {
+    if (!start || !end || start.dataset.day !== end.dataset.day) return;
+
+    const day = parseInt(start.dataset.day);
+    const startTime = parseInt(start.dataset.time);
+    const endTime = parseInt(end.dataset.time);
+    const drawMode = document.querySelector(`input[name="${prefix}-draw-mode"]:checked`).value;
+
+    const minTime = Math.min(startTime, endTime);
+    const maxTime = Math.max(startTime, endTime);
+
+    for (let i = minTime; i <= maxTime; i++) {
+        const cell = document.querySelector(`#scheduler-${prefix} [data-day='${day}'][data-time='${i}']`);
+        if (cell) {
+            cell.className = `scheduler-cell mode-${drawMode}`;
+        }
+    }
+}
+
 
 function formatTime(halfHour) {
     const hour = Math.floor(halfHour / 2);
     const minute = (halfHour % 2) * 30;
     return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
-}
-
-function updateLiveTime(start, end, display) {
-    if (!start || !end) return;
-    const startTime = parseInt(start.dataset.time);
-    const endTime = parseInt(end.dataset.time);
-    const startDay = parseInt(start.dataset.day);
-    const endDay = parseInt(end.dataset.day);
-
-    if(startDay !== endDay) {
-        display.textContent = "Innerhalb eines Tages markieren";
-        return;
-    }
-
-    const firstTime = Math.min(startTime, endTime);
-    const lastTime = Math.max(startTime, endTime);
-
-    display.textContent = `Zeit: ${formatTime(firstTime)} - ${formatTime(lastTime + 1)}`;
 }
 
 function copyProfile() {
@@ -739,9 +791,9 @@ function updateCharts(basis, optimierung) {
             plugins: { 
                 legend: { display: false },
                 datalabels: {
-                    anchor: 'end',
-                    align: 'end',
-                    color: '#111827',
+                    anchor: 'center',
+                    align: 'center',
+                    color: '#ffffff',
                     font: { size: 14, weight: 'bold' },
                     formatter: value => `${formatNumber(value, 2)} €`
                 }
