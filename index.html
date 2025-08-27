@@ -6,6 +6,7 @@
     <title>Experten-Tool für RLT-Analyse (Optimiert)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         body {
@@ -58,7 +59,7 @@
             position: relative;
             cursor: pointer;
             border: 1px solid #e5e7eb;
-            transition: background-color 0.2s;
+            transition: background-color 0.1s;
             user-select: none;
         }
         .scheduler-cell:hover {
@@ -71,8 +72,8 @@
             right: 0;
             bottom: 0;
         }
-        .mode-normal { background-color: #3b82f6; }
-        .mode-absenk { background-color: #a5b4fc; }
+        .mode-normal { background-color: #2563eb; }
+        .mode-absenk { background-color: #7dd3fc; }
         .mode-aus { background-color: #e5e7eb; }
         .kpi-card {
             background-color: white;
@@ -80,6 +81,10 @@
             padding: 1.5rem;
             text-align: center;
             box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            transition: transform 0.2s;
+        }
+        .kpi-card:hover {
+            transform: translateY(-5px);
         }
         .kpi-value {
             font-size: 2.25rem;
@@ -94,12 +99,12 @@
         .saving-negative { color: #dc2626; }
         /* Custom grid for scheduler */
         .grid-cols-49 {
-            grid-template-columns: 2rem repeat(48, minmax(0, 1fr));
+            grid-template-columns: 2.5rem repeat(48, minmax(0, 1fr));
         }
         /* Chart container */
         .chart-container {
             position: relative;
-            height: 400px;
+            height: 350px;
             width: 100%;
         }
         /* Radio button styling */
@@ -260,6 +265,7 @@ const cp_w = 1.86; // Spezifische Wärmekapazität Wasserdampf [kJ/(kg*K)]
 const h_v0 = 2501; // Verdampfungsenthalpie von Wasser bei 0°C [kJ/kg]
 let costDistributionChart, scenarioComparisonChart;
 let activeTab = 'basis';
+Chart.register(ChartDataLabels);
 
 // --- PSYCHROMETRIE-BIBLIOTHEK ---
 const psychroLib = {
@@ -305,6 +311,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('modal-close-btn').addEventListener('click', () => {
         document.getElementById('alert-modal').classList.add('hidden');
     });
+    document.getElementById('copy-profile-btn').addEventListener('click', copyProfile);
 });
 
 function showModal(message) {
@@ -318,6 +325,7 @@ function switchTab(tabName) {
     document.getElementById('tab-optimierung').classList.toggle('active', tabName === 'optimierung');
     document.getElementById('form-basis').style.display = tabName === 'basis' ? 'block' : 'none';
     document.getElementById('form-optimierung').style.display = tabName === 'optimierung' ? 'block' : 'none';
+    document.getElementById('copy-profile-btn').style.display = tabName === 'optimierung' ? 'inline-flex' : 'none';
 }
 
 // --- HTML-GENERIERUNG ---
@@ -391,12 +399,12 @@ function createScheduler(prefix) {
     const days = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
     let headerHtml = '<div></div>';
     for (let i = 0; i < 24; i++) {
-        headerHtml += `<div class="col-span-2 text-center text-gray-500 font-semibold">${i}</div>`;
+        headerHtml += `<div class="col-span-2 text-center text-gray-500 font-semibold text-xs">${i}</div>`;
     }
 
     let rowsHtml = '';
     days.forEach((day, dayIndex) => {
-        rowsHtml += `<div class="font-semibold text-gray-500 flex items-center justify-center">${day}</div>`;
+        rowsHtml += `<div class="font-semibold text-gray-500 flex items-center justify-center text-sm">${day}</div>`;
         for (let halfHour = 0; halfHour < 48; halfHour++) {
             let defaultMode = 'aus';
             if (dayIndex < 5 && halfHour >= 14 && halfHour < 36) { // 7:00 - 18:00
@@ -407,14 +415,20 @@ function createScheduler(prefix) {
     });
 
     return `
-        <h3 class="text-lg font-semibold text-gray-600 border-b pb-2 mb-4">Betriebsprofil (Wochenplaner)</h3>
-        <div class="flex flex-wrap items-center gap-4 mb-4">
-            <span class="font-medium">Zeichenmodus:</span>
-            <div class="radio-group flex gap-2">
-                <div><input type="radio" id="${prefix}-draw-normal" name="${prefix}-draw-mode" value="normal" checked><label for="${prefix}-draw-normal">Normal</label></div>
-                <div><input type="radio" id="${prefix}-draw-absenk" name="${prefix}-draw-mode" value="absenk"><label for="${prefix}-draw-absenk">Absenk</label></div>
-                <div><input type="radio" id="${prefix}-draw-aus" name="${prefix}-draw-mode" value="aus"><label for="${prefix}-draw-aus">AUS</label></div>
+        <div class="flex justify-between items-center">
+             <h3 class="text-lg font-semibold text-gray-600 border-b pb-2 mb-4">Betriebsprofil (Wochenplaner)</h3>
+             <button type="button" id="copy-profile-btn" style="display: ${prefix === 'optimierung' ? 'inline-flex' : 'none'};" class="items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700">Profil kopieren</button>
+        </div>
+        <div class="flex flex-wrap items-center gap-x-6 gap-y-2 mb-4">
+            <div class="flex items-center gap-4">
+                <span class="font-medium">Zeichenmodus:</span>
+                <div class="radio-group flex gap-2">
+                    <div><input type="radio" id="${prefix}-draw-normal" name="${prefix}-draw-mode" value="normal" checked><label for="${prefix}-draw-normal">Normal</label></div>
+                    <div><input type="radio" id="${prefix}-draw-absenk" name="${prefix}-draw-mode" value="absenk"><label for="${prefix}-draw-absenk">Absenk</label></div>
+                    <div><input type="radio" id="${prefix}-draw-aus" name="${prefix}-draw-mode" value="aus"><label for="${prefix}-draw-aus">AUS</label></div>
+                </div>
             </div>
+            <div id="time-display-${prefix}" class="font-mono text-blue-800 bg-blue-100 px-3 py-1 rounded-md text-sm h-8 flex items-center"></div>
         </div>
         <div id="scheduler-${prefix}" class="grid grid-cols-49 gap-px text-xs text-center select-none">
             ${headerHtml}
@@ -440,35 +454,72 @@ function addInputValidation() {
 
 function setupSchedulerInteraction(prefix) {
     const scheduler = document.getElementById(`scheduler-${prefix}`);
+    const timeDisplay = document.getElementById(`time-display-${prefix}`);
     let isDragging = false;
+    let startCell = null;
 
     scheduler.addEventListener('mousedown', (e) => {
-        if (e.target.classList.contains('scheduler-cell')) {
+        if (e.target.closest('.scheduler-cell')) {
             isDragging = true;
-            applyMode(e.target, prefix);
+            startCell = e.target.closest('.scheduler-cell');
+            applyMode(startCell, prefix);
+            updateLiveTime(startCell, startCell, timeDisplay);
             e.preventDefault();
         }
     });
 
     scheduler.addEventListener('mouseover', (e) => {
-        if (isDragging && e.target.classList.contains('scheduler-cell')) {
-            applyMode(e.target, prefix);
+        if (isDragging && e.target.closest('.scheduler-cell')) {
+            applyMode(e.target.closest('.scheduler-cell'), prefix);
+            updateLiveTime(startCell, e.target.closest('.scheduler-cell'), timeDisplay);
         }
     });
 
     document.addEventListener('mouseup', () => {
         isDragging = false;
-    });
-    
-    scheduler.addEventListener('mouseleave', () => {
-        // Optional: Stop dragging if mouse leaves the scheduler container
-        // isDragging = false;
+        startCell = null;
+        setTimeout(() => timeDisplay.textContent = '', 2000);
     });
 }
 
 function applyMode(cell, prefix) {
     const drawMode = document.querySelector(`input[name="${prefix}-draw-mode"]:checked`).value;
-    cell.className = `scheduler-cell mode-${drawMode}`; // Reset classes and apply new one
+    cell.className = `scheduler-cell mode-${drawMode}`;
+    cell.dataset.day = cell.parentElement.dataset.day;
+    cell.dataset.time = cell.parentElement.dataset.time;
+}
+
+function formatTime(halfHour) {
+    const hour = Math.floor(halfHour / 2);
+    const minute = (halfHour % 2) * 30;
+    return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+}
+
+function updateLiveTime(start, end, display) {
+    if (!start || !end) return;
+    const startTime = parseInt(start.dataset.time);
+    const endTime = parseInt(end.dataset.time);
+    const startDay = parseInt(start.dataset.day);
+    const endDay = parseInt(end.dataset.day);
+
+    if(startDay !== endDay) {
+        display.textContent = "Bitte nur innerhalb eines Tages markieren.";
+        return;
+    }
+
+    const firstTime = Math.min(startTime, endTime);
+    const lastTime = Math.max(startTime, endTime);
+
+    display.textContent = `Zeit: ${formatTime(firstTime)} - ${formatTime(lastTime + 1)}`;
+}
+
+function copyProfile() {
+    const basisCells = document.querySelectorAll('#scheduler-basis .scheduler-cell');
+    const optimierungCells = document.querySelectorAll('#scheduler-optimierung .scheduler-cell');
+    basisCells.forEach((cell, index) => {
+        optimierungCells[index].className = cell.className;
+    });
+    showModal("Betriebsprofil wurde vom Basis- zum Optimierungs-Szenario kopiert.");
 }
 
 
@@ -629,11 +680,25 @@ function updateCharts(basis, optimierung) {
             labels: ['Ventilator', 'Heizen', 'Kühlen'],
             datasets: [{
                 data: [optimierung.costFan, optimierung.costHeat, optimierung.costCool],
-                backgroundColor: ['#3b82f6', '#ef4444', '#f97316'],
-                borderColor: '#ffffff', borderWidth: 2
+                backgroundColor: ['#2563eb', '#f97316', '#ef4444'],
+                borderColor: '#ffffff', borderWidth: 4
             }]
         },
-        options: { responsive: true, maintainAspectRatio: false }
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'bottom' },
+                datalabels: {
+                    formatter: (value, ctx) => {
+                        const sum = ctx.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
+                        const percentage = (value * 100 / sum).toFixed(1) + '%';
+                        return sum > 0 ? percentage : '';
+                    },
+                    color: '#fff',
+                    font: { weight: 'bold', size: 14 }
+                }
+            }
+        }
     });
 
     if (scenarioComparisonChart) scenarioComparisonChart.destroy();
@@ -644,12 +709,17 @@ function updateCharts(basis, optimierung) {
             datasets: [{
                 label: 'Jahreskosten in €',
                 data: [basis.totalCost, optimierung.totalCost],
-                backgroundColor: ['#6b7280', '#16a34a'], borderRadius: 4
+                backgroundColor: ['#6b7280', '#16a34a'], 
+                borderColor: ['#4b5563', '#15803d'],
+                borderWidth: 1,
+                borderRadius: 4
             }]
         },
         options: {
+            indexAxis: 'y',
             responsive: true, maintainAspectRatio: false,
-            scales: { y: { beginAtZero: true, ticks: { callback: value => `${value} €` } } }
+            plugins: { legend: { display: false } },
+            scales: { x: { beginAtZero: true, ticks: { callback: value => `${value} €` } } }
         }
     });
 }
